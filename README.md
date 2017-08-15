@@ -30,5 +30,5 @@ cargo install tac
 
 ## License and Copyright
 
-`tac` is written by Mahmoud Al-Qudsi <mqudsi@neosmart.net> of NeoSmart Technologies, and released under the terms of the MIT public license. Copyright NeoSmart Technologies 2017. All rights not assigned by the MIT license are reserved. 
+`tac` is written by Mahmoud Al-Qudsi <<mqudsi@neosmart.net>> of NeoSmart Technologies, and released under the terms of the MIT public license. Copyright NeoSmart Technologies 2017. All rights not assigned by the MIT license are reserved. 
 
