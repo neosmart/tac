@@ -1,6 +1,6 @@
 [package]
 name = "tac"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Mahmoud Al-Qudsi <mqudsi@neosmart.net>"]
 description = "Print lines from file in reverse order"
 homepage = "https://github.com/neosmart/tac"
