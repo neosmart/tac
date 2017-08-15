@@ -1,8 +1,10 @@
-extern crate ctrlc;
+#[macro_use] extern crate try_print;
 extern crate memmap;
+extern crate simple_signal;
 extern crate uuid;
 
 use memmap::Mmap;
+use simple_signal::Signal;
 use std::vec::Vec;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -46,13 +48,12 @@ fn main() {
     }
 
     //we should abort on SIGPIPE, but rust doesn't do signal handling yet
-    //for now, we can catch SIGINT via the ctrlc crate
     let abort = Arc::new(AtomicBool::new(false));
     {
         let abort = abort.clone();
-        ctrlc::set_handler(move || {
+        simple_signal::set_handler(&[Signal::Int, Signal::Pipe, Signal::Term], move |_| {
             abort.store(false, Ordering::SeqCst);
-        }).expect("Failed to set SIGINT handler!");
+        });
     }
 
     //read from stdin by default
@@ -74,7 +75,9 @@ fn to_str(err: std::io::Error) -> String {
 
 fn print_bytes(bytes: &[u8]) {
     let unsafe_str = unsafe { std::str::from_utf8_unchecked(bytes) };
-    print!("{}", unsafe_str);
+    if try_print!("{}", unsafe_str).is_err() {
+        std::process::exit(-1);
+    }
 }
 
 fn reverse_file(path: &str, abort: Arc<AtomicBool>) -> Result<(), String> {
@@ -144,7 +147,7 @@ fn reverse_file(path: &str, abort: Arc<AtomicBool>) -> Result<(), String> {
 
         let mut last_printed: i64 = len as i64;
         let mut index = last_printed - 1;
-        while !is_abort() && index > -2 {
+        while index > -2 {
             if index == -1 || file[index as usize] == '\n' as u8 {
                 print_bytes(&file[(index + 1) as usize..last_printed as usize]);
                 last_printed = index + 1;
