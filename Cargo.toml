@@ -5,3 +5,4 @@ authors = ["Mahmoud Al-Qudsi <mqudsi@neosmart.net>"]
 
 [dependencies]
 memmap = "0.5"
+uuid = { version = "0.4", features = ["v4"] }
