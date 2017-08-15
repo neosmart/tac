@@ -1,4 +1,5 @@
-#[macro_use] extern crate try_print;
+#[macro_use]
+extern crate try_print;
 extern crate memmap;
 extern crate uuid;
 
@@ -70,11 +71,12 @@ fn print_bytes(bytes: &[u8]) {
 fn reverse_file(path: &str) -> Result<(), String> {
     use std::fs::File;
     use std::io::Write;
+    use std::path::PathBuf;
     use uuid::Uuid;
 
     let mmap;
     let mut line;
-    let mut temp_path = unsafe { std::mem::uninitialized() };
+    let mut temp_path = PathBuf::new();
     let mut delete_on_exit = false;
 
     {
@@ -89,12 +91,12 @@ fn reverse_file(path: &str) -> Result<(), String> {
                 {
                     let stdin = std::io::stdin();
 
-                    let mut temp_file = unsafe { std::mem::uninitialized() };
+                    let mut file = None;
                     while stdin.read_line(&mut line).map_err(to_str)? != 0 {
                         if in_mem && line.len() > MAX_BUF_SIZE {
                             temp_path = std::env::temp_dir()
                                 .join(format!("{}", Uuid::new_v4().hyphenated()));
-                            temp_file = File::create(&temp_path).map_err(to_str)?;
+                            let mut temp_file = File::create(&temp_path).map_err(to_str)?;
 
                             //write everything we've read so far
                             temp_file.write_all(line.as_bytes()).map_err(to_str)?;
@@ -104,8 +106,11 @@ fn reverse_file(path: &str) -> Result<(), String> {
                             eprintln!("Switching to file mode");
                             in_mem = false;
                             delete_on_exit = true;
+                            file = Some(temp_file);
                         } else if !in_mem {
+                            let mut temp_file = file.unwrap();
                             temp_file.write_all(line.as_bytes()).map_err(to_str)?;
+                            file = Some(temp_file);
                             line.clear();
                         }
                     }
