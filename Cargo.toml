@@ -12,6 +12,5 @@ license = "MIT"
 
 [dependencies]
 memmap = "0.5"
-simple-signal = "1.1"
 try_print = "0.0.1"
 uuid = { version = "0.4", features = ["v4"] } 

@@ -1,13 +1,9 @@
 #[macro_use] extern crate try_print;
 extern crate memmap;
-extern crate simple_signal;
 extern crate uuid;
 
 use memmap::Mmap;
-use simple_signal::Signal;
 use std::vec::Vec;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; //4MiB
 
@@ -47,22 +43,13 @@ fn main() {
         }
     }
 
-    //we should abort on SIGPIPE, but rust doesn't do signal handling yet
-    let abort = Arc::new(AtomicBool::new(false));
-    {
-        let abort = abort.clone();
-        simple_signal::set_handler(&[Signal::Int, Signal::Pipe, Signal::Term], move |_| {
-            abort.store(false, Ordering::SeqCst);
-        });
-    }
-
     //read from stdin by default
     if files.len() == 0 {
         files.push("-");
     }
 
     for file in files {
-        match reverse_file(file, abort.clone()) {
+        match reverse_file(file) {
             Err(e) => panic!("{}", e),
             _ => {}
         }
@@ -80,14 +67,10 @@ fn print_bytes(bytes: &[u8]) {
     }
 }
 
-fn reverse_file(path: &str, abort: Arc<AtomicBool>) -> Result<(), String> {
+fn reverse_file(path: &str) -> Result<(), String> {
     use std::fs::File;
     use std::io::Write;
     use uuid::Uuid;
-
-    let is_abort = || {
-        abort.load(Ordering::SeqCst)
-    };
 
     let mmap;
     let mut line;
@@ -107,7 +90,7 @@ fn reverse_file(path: &str, abort: Arc<AtomicBool>) -> Result<(), String> {
                     let stdin = std::io::stdin();
 
                     let mut temp_file = unsafe { std::mem::uninitialized() };
-                    while !is_abort() && stdin.read_line(&mut line).map_err(to_str)? != 0 {
+                    while stdin.read_line(&mut line).map_err(to_str)? != 0 {
                         if in_mem && line.len() > MAX_BUF_SIZE {
                             temp_path = std::env::temp_dir()
                                 .join(format!("{}", Uuid::new_v4().hyphenated()));
