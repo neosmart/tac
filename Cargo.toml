@@ -2,6 +2,13 @@
 name = "tac"
 version = "0.1.0"
 authors = ["Mahmoud Al-Qudsi <mqudsi@neosmart.net>"]
+description = "Print lines from file in reverse order"
+homepage = "https://github.com/neosmart/tac"
+repository = "https://github.com/neosmart/tac"
+readme = "README.md"
+keywords = ["tac", "reverse"]
+categories = ["command-line-utilities"]
+license = "MIT"
 
 [dependencies]
 memmap = "0.5"
