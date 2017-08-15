@@ -56,8 +56,7 @@ fn main() {
 }
 
 fn to_str(err: std::io::Error) -> String {
-    panic!("{}", err);
-    // return format!("{}", err);
+    return format!("{}", err);
 }
 
 fn print_bytes(bytes: &[u8]) {
