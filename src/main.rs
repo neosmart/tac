@@ -9,12 +9,13 @@ use std::vec::Vec;
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; //4MiB
 
 fn version() {
-    println!("tac 0.2 - Copyright NeoSmart Technologies 2017");
+    println!("tac 0.2.1 - Copyright NeoSmart Technologies 2017");
     println!("Report bugs at <https://github.com/neosmart/tac>");
-    std::process::exit(0);
 }
 
 fn help() {
+    version();
+    println!("");
     println!("Usage: tac [OPTIONS] [FILE1..]");
     println!("Write each FILE to standard output, last line first.");
     println!("Reads from STTDIN if no file is specified.");
@@ -22,8 +23,6 @@ fn help() {
     println!("Options:");
     println!("  -v --version: Print version and exit.");
     println!("  -h --help   : Print this help text and exit");
-
-    std::process::exit(0);
 }
 
 fn main() {
@@ -31,8 +30,8 @@ fn main() {
     let mut files = Vec::new();
     for arg in args.iter().skip(1).map(|s| s.as_str()) {
         match arg {
-            "-h" | "--help" => help(),
-            "-v" | "--version" => version(),
+            "-h" | "--help" => { help(); std::process::exit(0); },
+            "-v" | "--version" => { version(); std::process::exit(0); },
             file => {
                 if file.starts_with("-") && file != "-" {
                     eprintln!("Invalid option {}!", file);
