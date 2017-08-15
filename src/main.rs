@@ -103,7 +103,6 @@ fn reverse_file(path: &str) -> Result<(), String> {
                             //assign new string and not clear because we'll be using a smaller
                             //buffer now
                             line = String::new();
-                            eprintln!("Switching to file mode");
                             in_mem = false;
                             delete_on_exit = true;
                             file = Some(temp_file);
