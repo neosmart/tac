@@ -20,6 +20,14 @@ Options:
 
 Since `tac` is implemented via memory-mapped files, there is no limit on line length and no danger of memory exhaustion.
 
+### Example
+
+```
+$ echo -e "hello\nworld" | tac
+world
+hello
+```
+
 ## Installation
 
 `tac` may be installed via cargo, the rust package manager:
