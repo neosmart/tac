@@ -2,6 +2,7 @@
 name = "tac"
 version = "0.1.0"
 dependencies = [
+ "ctrlc 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "memmap 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "uuid 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -17,6 +18,16 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "custom_derive 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "ctrlc"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.29 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -106,6 +117,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [metadata]
 "checksum bitflags 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ab1c7dc97f39523ffa63f3096291612e630cf3ed75aa6b9fad436bac4c700274"
 "checksum conv 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "78ff10625fd0ac447827aa30ea8b861fead473bb60aeb73af6c1c58caf0d1299"
+"checksum ctrlc 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1c663ee353d7e03e4f895af66ff7d3537f94c09deaa341a2f450684a3d45cb46"
 "checksum custom_derive 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "ef8ae57c4978a2acd8b869ce6b9ca1dfe817bff704c220209fdef2c0b75a01b9"
 "checksum fs2 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9ab76cfd2aaa59b7bf6688ad9ba15bbae64bff97f04ea02144cfd3443e5c2866"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"

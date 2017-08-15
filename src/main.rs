@@ -1,3 +1,4 @@
+extern crate ctrlc;
 extern crate memmap;
 extern crate uuid;
 
@@ -41,6 +42,12 @@ fn main() {
             }
         }
     }
+
+    //we should abort on SIGPIPE, but rust doesn't do signal handling yet
+    //for now, we can catch SIGINT via the ctrlc crate
+    ctrlc::set_handler(|| {
+        std::process::exit(-1);
+    }).expect("Failed to set SIGINT handler!");
 
     //read from stdin by default
     if files.len() == 0 {
