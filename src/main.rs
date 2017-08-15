@@ -1,16 +1,22 @@
-use std::fs::File;
-use std::io::prelude::*;
+extern crate memmap;
+
+use memmap::Mmap;
 use std::vec::Vec;
 
-const BUFSIZE: usize = 1024;
-
 fn version() {
-    println!("tac 0.1. Copyright NeoSmart Technologies 2017");
+    println!("tac 0.1 - Copyright NeoSmart Technologies 2017");
+    println!("Report bugs at <https://github.com/neosmart/tac>");
     std::process::exit(0);
 }
 
 fn help() {
-    println!("tac [-v | -h | FILE1 [FILE2 [FILE3 ...]]]");
+    println!("Usage: tac [OPTIONS] [FILE1..]");
+    println!("Write each FILE to standard output, last line first.");
+    println!("");
+    println!("Options:");
+    println!("  -v --version: Print version and exit.");
+    println!("  -h --help   : Print this help text and exit");
+
     std::process::exit(0);
 }
 
@@ -23,9 +29,8 @@ fn main() {
             "-v" | "--version" => version(),
             file => {
                 if file.starts_with("-") {
-                    eprintln!("Usage error: argument {} is not recognized! Run tac --help to see \
-                               valid command-line options.",
-                              file);
+                    eprintln!("Invalid option {}!", file);
+                    eprintln!("Try 'tac --help' for more information");
                     std::process::exit(-1);
                 }
                 files.push(file)
@@ -41,43 +46,32 @@ fn main() {
     }
 }
 
-fn to_err_str(err: std::io::Error) -> String {
+fn to_str(err: std::io::Error) -> String {
     return format!("{}", err);
 }
 
+fn print_bytes(bytes: &[u8]) {
+    let unsafe_str = unsafe { std::str::from_utf8_unchecked(bytes) };
+    print!("{}", unsafe_str);
+}
+
 fn reverse_file(path: &str) -> Result<(), String> {
-    use std::io::SeekFrom;
+    let file = Mmap::open_path(path, memmap::Protection::Read).map_err(to_str)?;
+    let len = file.len();
 
-    let len = std::fs::metadata(path).map_err(to_err_str)?.len() as usize;
-    let mut file = File::open(path).map_err(to_err_str)?;
+    let mmap = unsafe {
+        file.as_slice()
+    };
 
-    let mut file_read_index: usize = if len > BUFSIZE { (len - BUFSIZE) as usize } else { 0 };
-    let mut buffer: [u8; BUFSIZE] = [0u8; BUFSIZE];
-
-    loop {
-        file.seek(SeekFrom::Start(file_read_index as u64)).map_err(to_err_str)?;
-        let bytes_read = file.read(&mut buffer[..]).map_err(to_err_str)?;
-        eprintln!("Read {} bytes", bytes_read);
-        let read_view = &buffer[0..bytes_read];
-        let mut last_new_line = if bytes_read != 0 { bytes_read - 1 } else { 0 };
-
-        for i in (1..last_new_line + 1).rev() {
-            if read_view[i] == 10 {
-                let unsafe_str = unsafe { std::str::from_utf8_unchecked(&read_view[i..last_new_line]) };
-                println!("{}", unsafe_str);
-                last_new_line = i;
-            }
+    let mut last_printed: i64 = len as i64;
+    let mut index = last_printed - 1;
+    while index > -2 {
+        if index == -1 || mmap[index as usize] == '\n' as u8 {
+            print_bytes(&mmap[(index + 1) as usize..last_printed as usize]);
+            last_printed = index + 1;
         }
 
-        if file_read_index == 0 {
-            //everything that's left is one line
-            let unsafe_str = unsafe { std::str::from_utf8_unchecked(&read_view[0..last_new_line]) };
-            println!("{}", unsafe_str);
-            break;
-        }
-        else {
-            file_read_index = if file_read_index < BUFSIZE { 0 } else { file_read_index - BUFSIZE };
-        }
+        index -= 1;
     }
 
     return Ok(());
