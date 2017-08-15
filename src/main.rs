@@ -4,6 +4,8 @@ extern crate uuid;
 
 use memmap::Mmap;
 use std::vec::Vec;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; //4MiB
 
@@ -45,9 +47,13 @@ fn main() {
 
     //we should abort on SIGPIPE, but rust doesn't do signal handling yet
     //for now, we can catch SIGINT via the ctrlc crate
-    ctrlc::set_handler(|| {
-        std::process::exit(-1);
-    }).expect("Failed to set SIGINT handler!");
+    let abort = Arc::new(AtomicBool::new(false));
+    {
+        let abort = abort.clone();
+        ctrlc::set_handler(move || {
+            abort.store(false, Ordering::SeqCst);
+        }).expect("Failed to set SIGINT handler!");
+    }
 
     //read from stdin by default
     if files.len() == 0 {
@@ -55,7 +61,7 @@ fn main() {
     }
 
     for file in files {
-        match reverse_file(file) {
+        match reverse_file(file, abort.clone()) {
             Err(e) => panic!("{}", e),
             _ => {}
         }
@@ -71,10 +77,14 @@ fn print_bytes(bytes: &[u8]) {
     print!("{}", unsafe_str);
 }
 
-fn reverse_file(path: &str) -> Result<(), String> {
+fn reverse_file(path: &str, abort: Arc<AtomicBool>) -> Result<(), String> {
     use std::fs::File;
     use std::io::Write;
     use uuid::Uuid;
+
+    let is_abort = || {
+        abort.load(Ordering::SeqCst)
+    };
 
     let mmap;
     let mut line;
@@ -94,7 +104,7 @@ fn reverse_file(path: &str) -> Result<(), String> {
                     let stdin = std::io::stdin();
 
                     let mut temp_file = unsafe { std::mem::uninitialized() };
-                    while stdin.read_line(&mut line).map_err(to_str)? != 0 {
+                    while !is_abort() && stdin.read_line(&mut line).map_err(to_str)? != 0 {
                         if in_mem && line.len() > MAX_BUF_SIZE {
                             temp_path = std::env::temp_dir()
                                 .join(format!("{}", Uuid::new_v4().hyphenated()));
@@ -134,7 +144,7 @@ fn reverse_file(path: &str) -> Result<(), String> {
 
         let mut last_printed: i64 = len as i64;
         let mut index = last_printed - 1;
-        while index > -2 {
+        while !is_abort() && index > -2 {
             if index == -1 || file[index as usize] == '\n' as u8 {
                 print_bytes(&file[(index + 1) as usize..last_printed as usize]);
                 last_printed = index + 1;
