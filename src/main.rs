@@ -132,7 +132,7 @@ fn reverse_file(path: &str) -> Result<(), String> {
         let stdout = std::io::stdout();
         let mut stdout = stdout.lock();
 
-        let mut last_printed: i64 = len as i64;
+        let mut last_printed = len as i64;
         let mut index = last_printed - 1;
         while index > -2 {
             if index == -1 || file[index as usize] == '\n' as u8 {
