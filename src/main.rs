@@ -8,7 +8,7 @@ use std::vec::Vec;
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; //4MiB
 
 fn version() {
-    println!("tac 0.2.1 - Copyright NeoSmart Technologies 2017");
+    println!("tac 0.2.2 - Copyright NeoSmart Technologies 2017");
     println!("Report bugs at <https://github.com/neosmart/tac>");
 }
 
