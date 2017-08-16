@@ -1,9 +1,8 @@
-#[macro_use]
-extern crate try_print;
 extern crate memmap;
 extern crate uuid;
 
 use memmap::Mmap;
+use std::io::{StdoutLock, Write};
 use std::vec::Vec;
 
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; //4MiB
@@ -60,9 +59,8 @@ fn to_str(err: std::io::Error) -> String {
     return format!("{}", err);
 }
 
-fn print_bytes(bytes: &[u8]) {
-    let unsafe_str = unsafe { std::str::from_utf8_unchecked(bytes) };
-    if try_print!("{}", unsafe_str).is_err() {
+fn print_bytes(mut stdout: &mut StdoutLock, bytes: &[u8]) {
+    if stdout.write_all(bytes).is_err() {
         std::process::exit(-1);
     }
 }
@@ -131,11 +129,14 @@ fn reverse_file(path: &str) -> Result<(), String> {
             }
         };
 
+        let stdout = std::io::stdout();
+        let mut stdout = stdout.lock();
+
         let mut last_printed: i64 = len as i64;
         let mut index = last_printed - 1;
         while index > -2 {
             if index == -1 || file[index as usize] == '\n' as u8 {
-                print_bytes(&file[(index + 1) as usize..last_printed as usize]);
+                print_bytes(&mut stdout, &file[(index + 1) as usize..last_printed as usize]);
                 last_printed = index + 1;
             }
 
