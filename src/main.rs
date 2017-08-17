@@ -29,8 +29,14 @@ fn main() {
     let mut files = Vec::new();
     for arg in args.iter().skip(1).map(|s| s.as_str()) {
         match arg {
-            "-h" | "--help" => { help(); std::process::exit(0); },
-            "-v" | "--version" => { version(); std::process::exit(0); },
+            "-h" | "--help" => {
+                help();
+                std::process::exit(0);
+            }
+            "-v" | "--version" => {
+                version();
+                std::process::exit(0);
+            }
             file => {
                 if file.starts_with("-") && file != "-" {
                     eprintln!("Invalid option {}!", file);
@@ -48,15 +54,11 @@ fn main() {
     }
 
     for file in files {
-        match reverse_file(file) {
-            Err(e) => panic!("{}", e),
-            _ => {}
+        if let Err(e) = reverse_file(file) {
+            eprintln!("{}: {:?}", file, e);
+            std::process::exit(-1);
         }
     }
-}
-
-fn to_str(err: std::io::Error) -> String {
-    return format!("{}", err);
 }
 
 fn print_bytes(mut stdout: &mut StdoutLock, bytes: &[u8]) {
@@ -65,7 +67,7 @@ fn print_bytes(mut stdout: &mut StdoutLock, bytes: &[u8]) {
     }
 }
 
-fn reverse_file(path: &str) -> Result<(), String> {
+fn reverse_file(path: &str) -> std::io::Result<()> {
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
@@ -89,14 +91,14 @@ fn reverse_file(path: &str) -> Result<(), String> {
                     let stdin = std::io::stdin();
 
                     let mut file = None;
-                    while stdin.read_line(&mut line).map_err(to_str)? != 0 {
+                    while stdin.read_line(&mut line)? != 0 {
                         if in_mem && line.len() > MAX_BUF_SIZE {
                             temp_path = std::env::temp_dir()
                                 .join(format!("{}", Uuid::new_v4().hyphenated()));
-                            let mut temp_file = File::create(&temp_path).map_err(to_str)?;
+                            let mut temp_file = File::create(&temp_path)?;
 
                             //write everything we've read so far
-                            temp_file.write_all(line.as_bytes()).map_err(to_str)?;
+                            temp_file.write_all(line.as_bytes())?;
                             //assign new string and not clear because we'll be using a smaller
                             //buffer now
                             line = String::new();
@@ -105,7 +107,7 @@ fn reverse_file(path: &str) -> Result<(), String> {
                             file = Some(temp_file);
                         } else if !in_mem {
                             let mut temp_file = file.unwrap();
-                            temp_file.write_all(line.as_bytes()).map_err(to_str)?;
+                            temp_file.write_all(line.as_bytes())?;
                             file = Some(temp_file);
                             line.clear();
                         }
@@ -115,15 +117,14 @@ fn reverse_file(path: &str) -> Result<(), String> {
                 match in_mem {
                     true => (line.as_bytes(), line.as_bytes().len()),
                     false => {
-                        mmap =
-                            Mmap::open_path(&temp_path, memmap::Protection::Read).map_err(to_str)?;
+                        mmap = Mmap::open_path(&temp_path, memmap::Protection::Read)?;
                         let bytes = unsafe { mmap.as_slice() };
                         (bytes, mmap.len())
                     }
                 }
             }
             _ => {
-                mmap = Mmap::open_path(path, memmap::Protection::Read).map_err(to_str)?;
+                mmap = Mmap::open_path(path, memmap::Protection::Read)?;
                 let bytes = unsafe { mmap.as_slice() };
                 (bytes, mmap.len())
             }
@@ -136,7 +137,8 @@ fn reverse_file(path: &str) -> Result<(), String> {
         let mut index = last_printed - 1;
         while index > -2 {
             if index == -1 || file[index as usize] == '\n' as u8 {
-                print_bytes(&mut stdout, &file[(index + 1) as usize..last_printed as usize]);
+                print_bytes(&mut stdout,
+                            &file[(index + 1) as usize..last_printed as usize]);
                 last_printed = index + 1;
             }
 
@@ -145,11 +147,9 @@ fn reverse_file(path: &str) -> Result<(), String> {
     }
 
     if delete_on_exit {
-        std::fs::remove_file(&temp_path).map_err(|e| {
-                format!("Failed to remove temporary file {}: {}",
-                        temp_path.display(),
-                        e)
-            })?;
+        //this should never fail unless we've somehow kept a handle open to it
+        std::fs::remove_file(&temp_path)
+            .expect(&format!("Failed to remove temporary file {}", temp_path.display()));
     }
 
     return Ok(());
