@@ -2,7 +2,7 @@ extern crate memmap;
 extern crate uuid;
 
 use memmap::Mmap;
-use std::io::{StdoutLock, Write};
+use std::io::{Stdout, Write};
 use std::vec::Vec;
 
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; //4MiB
@@ -61,7 +61,7 @@ fn main() {
     }
 }
 
-fn print_bytes(mut stdout: &mut StdoutLock, bytes: &[u8]) {
+fn print_bytes(mut stdout: &mut Stdout, bytes: &[u8]) {
     if stdout.write_all(bytes).is_err() {
         std::process::exit(-1);
     }
@@ -130,8 +130,7 @@ fn reverse_file(path: &str) -> std::io::Result<()> {
             }
         };
 
-        let stdout = std::io::stdout();
-        let mut stdout = stdout.lock();
+        let mut stdout = std::io::stdout();
 
         let mut last_printed = len as i64;
         let mut index = last_printed - 1;
