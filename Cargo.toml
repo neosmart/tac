@@ -12,4 +12,3 @@ license = "MIT"
 
 [dependencies]
 memmap = "0.7"
-uuid = { version = "0.7", features = ["v4"] }

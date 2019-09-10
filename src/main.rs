@@ -1,9 +1,9 @@
 extern crate memmap;
-extern crate uuid;
 
 use memmap::Mmap;
-use std::io::{Stdout, Write};
-use std::vec::Vec;
+use std::fs::File;
+use std::io::prelude::*;
+use std::io::{BufReader, BufWriter};
 
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 
@@ -69,83 +69,74 @@ fn main() {
     }
 }
 
-fn print_bytes(stdout: &mut Stdout, bytes: &[u8]) {
-    if stdout.write_all(bytes).is_err() {
-        std::process::exit(-1);
-    }
-}
-
 fn reverse_file(path: &str) -> std::io::Result<()> {
-    use std::fs::File;
-    use std::path::PathBuf;
-    use uuid::Uuid;
-
     let mmap;
-    let mut line;
-    let mut temp_path = PathBuf::new();
-    let mut delete_on_exit = false;
+    let mut buf;
+    let mut temp_path = None;
 
     {
-        let (file, len) = match path {
+        let bytes = match path {
             "-" => {
-                // Read from stdin, buffering up to MAX_BUFF_SIZE in memory
+                // We unfortunately need to buffer the entirety of the stdin input first;
+                // we try to do so purely in memory but will switch to a backing file if
+                // the input exceeds MAX_BUF_SIZE.
+                buf = Some(Vec::new());
+                let buf = buf.as_mut().unwrap();
+                let mut reader = BufReader::new(std::io::stdin());
+                let mut total_read = 0;
 
-                let mut in_mem = true;
-                line = String::new();
+                // Once/if we switch to a file-backed buffer, this will contain the handle.
+                let mut file = None;
+                buf.resize(MAX_BUF_SIZE, 0);
 
-                {
-                    let stdin = std::io::stdin();
+                loop {
+                    let bytes_read = reader.read(&mut buf[total_read..])?;
+                    if bytes_read == 0 {
+                        break;
+                    }
 
-                    let mut file = None;
-                    while stdin.read_line(&mut line)? != 0 {
-                        if in_mem && line.len() > MAX_BUF_SIZE {
-                            temp_path = std::env::temp_dir()
-                                .join(format!("{}", Uuid::new_v4().to_hyphenated()));
-                            let mut temp_file = File::create(&temp_path)?;
+                    total_read += bytes_read;
+                    match &mut file {
+                        None => if total_read >= MAX_BUF_SIZE {
+                                temp_path = Some(std::env::temp_dir()
+                                    .join(format!(".tac-{}", std::process::id())));
+                                let mut temp_file = File::create(temp_path.as_ref().unwrap())?;
 
-                            // Write everything we've read so far
-                            temp_file.write_all(line.as_bytes())?;
-                            // Assign new string and not clear because we'll be using a smaller
-                            // buffer now.
-                            line = String::new();
-                            in_mem = false;
-                            delete_on_exit = true;
-                            file = Some(temp_file);
-                        } else if !in_mem {
-                            let mut temp_file = file.unwrap();
-                            temp_file.write_all(line.as_bytes())?;
-                            file = Some(temp_file);
-                            line.clear();
+                                // Write everything we've read so far
+                                temp_file.write_all(&buf[0..total_read])?;
+                                file = Some(temp_file);
+                        },
+                        Some(ref mut temp_file) => {
+                            temp_file.write_all(&buf[0..bytes_read])?;
                         }
                     }
                 }
 
-                match in_mem {
-                    true => (line.as_bytes(), line.as_bytes().len()),
-                    false => {
-                        let temp_file = File::open(&temp_path)?;
+                // At this point, we have fully consumed the input and can proceed
+                // as if it were a normal source rather than stdin.
+
+                match &file {
+                    None => &buf[0..total_read],
+                    Some(temp_file) => {
                         mmap = unsafe { Mmap::map(&temp_file)? };
-                        (&mmap[..], mmap.len())
+                        &mmap[..]
                     }
                 }
             }
             _ => {
                 let file = File::open(path)?;
                 mmap = unsafe { Mmap::map(&file)? };
-                (&mmap[..], mmap.len())
+                &mmap[..]
             }
         };
 
-        let mut stdout = std::io::stdout();
+        let mut writer = BufWriter::new(std::io::stdout());
 
-        let mut last_printed = len as i64;
+        let mut last_printed = bytes.len() as i64;
         let mut index = last_printed - 1;
         while index > -2 {
-            if index == -1 || file[index as usize] == '\n' as u8 {
-                print_bytes(
-                    &mut stdout,
-                    &file[(index + 1) as usize..last_printed as usize],
-                );
+            if index == -1 || bytes[index as usize] == ('\n' as u8) {
+                writer.write_all(&bytes[(index + 1) as usize..last_printed as usize])?;
                 last_printed = index + 1;
             }
 
@@ -153,12 +144,12 @@ fn reverse_file(path: &str) -> std::io::Result<()> {
         }
     }
 
-    if delete_on_exit {
+    if let Some(ref path) = temp_path.as_ref()  {
         // This should never fail unless we've somehow kept a handle open to it
-        if let Err(e) = std::fs::remove_file(&temp_path) {
+        if let Err(e) = std::fs::remove_file(&path) {
             eprintln!(
                 "Error: failed to remove temporary file {}\n{}",
-                temp_path.display(),
+                path.display(),
                 e
             )
         };
