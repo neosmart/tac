@@ -11,5 +11,5 @@ categories = ["command-line-utilities"]
 license = "MIT"
 
 [dependencies]
-memmap = "0.5"
-uuid = { version = "0.4", features = ["v4"] } 
+memmap = "0.7"
+uuid = { version = "0.7", features = ["v4"] }

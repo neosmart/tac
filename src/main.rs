@@ -100,7 +100,7 @@ fn reverse_file(path: &str) -> std::io::Result<()> {
                     while stdin.read_line(&mut line)? != 0 {
                         if in_mem && line.len() > MAX_BUF_SIZE {
                             temp_path = std::env::temp_dir()
-                                .join(format!("{}", Uuid::new_v4().hyphenated()));
+                                .join(format!("{}", Uuid::new_v4().to_hyphenated()));
                             let mut temp_file = File::create(&temp_path)?;
 
                             // Write everything we've read so far
@@ -123,16 +123,16 @@ fn reverse_file(path: &str) -> std::io::Result<()> {
                 match in_mem {
                     true => (line.as_bytes(), line.as_bytes().len()),
                     false => {
-                        mmap = Mmap::open_path(&temp_path, memmap::Protection::Read)?;
-                        let bytes = unsafe { mmap.as_slice() };
-                        (bytes, mmap.len())
+                        let temp_file = File::open(&temp_path)?;
+                        mmap = unsafe { Mmap::map(&temp_file)? };
+                        (&mmap[..], mmap.len())
                     }
                 }
             }
             _ => {
-                mmap = Mmap::open_path(path, memmap::Protection::Read)?;
-                let bytes = unsafe { mmap.as_slice() };
-                (bytes, mmap.len())
+                let file = File::open(path)?;
+                mmap = unsafe { Mmap::map(&file)? };
+                (&mmap[..], mmap.len())
             }
         };
 
