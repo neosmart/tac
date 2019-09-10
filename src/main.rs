@@ -1,9 +1,10 @@
+extern crate atty;
 extern crate memmap;
 
 use memmap::Mmap;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::{BufReader, BufWriter};
+use std::io::BufWriter;
 
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 
@@ -18,7 +19,7 @@ fn help() {
     println!("");
     println!("Usage: tac [OPTIONS] [FILE1..]");
     println!("Write each FILE to standard output, last line first.");
-    println!("Reads from STTDIN if no file is specified.");
+    println!("Reads from STDIN if no file is specified.");
     println!("");
     println!("Options:");
     println!("  -v --version: Print version and exit.");
@@ -82,7 +83,7 @@ fn reverse_file(path: &str) -> std::io::Result<()> {
                 // the input exceeds MAX_BUF_SIZE.
                 buf = Some(Vec::new());
                 let buf = buf.as_mut().unwrap();
-                let mut reader = BufReader::new(std::io::stdin());
+                let mut reader = std::io::stdin();
                 let mut total_read = 0;
 
                 // Once/if we switch to a file-backed buffer, this will contain the handle.
@@ -97,15 +98,19 @@ fn reverse_file(path: &str) -> std::io::Result<()> {
 
                     total_read += bytes_read;
                     match &mut file {
-                        None => if total_read >= MAX_BUF_SIZE {
-                                temp_path = Some(std::env::temp_dir()
-                                    .join(format!(".tac-{}", std::process::id())));
+                        None => {
+                            if total_read >= MAX_BUF_SIZE {
+                                temp_path = Some(
+                                    std::env::temp_dir()
+                                        .join(format!(".tac-{}", std::process::id())),
+                                );
                                 let mut temp_file = File::create(temp_path.as_ref().unwrap())?;
 
                                 // Write everything we've read so far
                                 temp_file.write_all(&buf[0..total_read])?;
                                 file = Some(temp_file);
-                        },
+                            }
+                        }
                         Some(ref mut temp_file) => {
                             temp_file.write_all(&buf[0..bytes_read])?;
                         }
@@ -130,13 +135,21 @@ fn reverse_file(path: &str) -> std::io::Result<()> {
             }
         };
 
-        let mut writer = BufWriter::new(std::io::stdout());
+        let mut output = std::io::stdout();
+        let mut buffered_output;
+
+        let output: &mut dyn Write = if atty::is(atty::Stream::Stdout) {
+            &mut output
+        } else {
+            buffered_output = BufWriter::new(output);
+            &mut buffered_output
+        };
 
         let mut last_printed = bytes.len() as i64;
         let mut index = last_printed - 1;
         while index > -2 {
             if index == -1 || bytes[index as usize] == ('\n' as u8) {
-                writer.write_all(&bytes[(index + 1) as usize..last_printed as usize])?;
+                output.write_all(&bytes[(index + 1) as usize..last_printed as usize])?;
                 last_printed = index + 1;
             }
 
@@ -144,7 +157,7 @@ fn reverse_file(path: &str) -> std::io::Result<()> {
         }
     }
 
-    if let Some(ref path) = temp_path.as_ref()  {
+    if let Some(ref path) = temp_path.as_ref() {
         // This should never fail unless we've somehow kept a handle open to it
         if let Err(e) = std::fs::remove_file(&path) {
             eprintln!(
