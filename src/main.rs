@@ -9,7 +9,7 @@ use std::io::BufWriter;
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 
 fn version() {
-    println!("tac 0.2.3 - Copyright NeoSmart Technologies 2017-2019");
+    println!("tac {} - Copyright NeoSmart Technologies 2017-2019", env!("CARGO_PKG_VERSION"));
     println!("Developed by Mahmoud Al-Qudsi <mqudsi@neosmart.net>");
     println!("Report bugs at <https://github.com/neosmart/tac>");
 }
