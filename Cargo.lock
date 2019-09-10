@@ -25,7 +25,7 @@ dependencies = [
 
 [[package]]
 name = "tac"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "atty 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "memmap 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
