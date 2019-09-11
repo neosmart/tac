@@ -19,11 +19,11 @@ fn help() {
     println!("");
     println!("Usage: tac [OPTIONS] [FILE1..]");
     println!("Write each FILE to standard output, last line first.");
-    println!("Reads from STDIN if no file is specified.");
+    println!("Reads from stdin if FILE is - or not specified.");
     println!("");
     println!("Options:");
-    println!("  -v --version: Print version and exit.");
     println!("  -h --help   : Print this help text and exit");
+    println!("  -v --version: Print version and exit.");
 }
 
 fn main() {
