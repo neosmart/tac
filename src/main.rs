@@ -9,7 +9,10 @@ use std::io::BufWriter;
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 
 fn version() {
-    println!("tac {} - Copyright NeoSmart Technologies 2017-2019", env!("CARGO_PKG_VERSION"));
+    println!(
+        "tac {} - Copyright NeoSmart Technologies 2017-2019",
+        env!("CARGO_PKG_VERSION")
+    );
     println!("Developed by Mahmoud Al-Qudsi <mqudsi@neosmart.net>");
     println!("Report bugs at <https://github.com/neosmart/tac>");
 }
@@ -22,13 +25,15 @@ fn help() {
     println!("Reads from stdin if FILE is - or not specified.");
     println!("");
     println!("Options:");
-    println!("  -h --help   : Print this help text and exit");
-    println!("  -v --version: Print version and exit.");
+    println!("  -h --help        Print this help text and exit");
+    println!("  -v --version     Print version and exit.");
+    println!("  --line-buffered  Always flush output after each line.");
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let mut files = Vec::new();
+    let mut force_flush = false;
     let mut skip_switches = false;
     for arg in args.iter().skip(1).map(|s| s.as_str()) {
         if !skip_switches && arg.starts_with("-") && arg.len() > 1 {
@@ -40,6 +45,9 @@ fn main() {
                 "-v" | "--version" => {
                     version();
                     std::process::exit(0);
+                }
+                "--line-buffered" => {
+                    force_flush = true;
                 }
                 "--" => {
                     skip_switches = true;
@@ -63,14 +71,14 @@ fn main() {
     }
 
     for file in files {
-        if let Err(e) = reverse_file(file) {
+        if let Err(e) = reverse_file(file, force_flush) {
             eprintln!("{}: {:?}", file, e);
             std::process::exit(-1);
         }
     }
 }
 
-fn reverse_file(path: &str) -> std::io::Result<()> {
+fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
     let mmap;
     let mut buf;
     let mut temp_path = None;
@@ -138,7 +146,7 @@ fn reverse_file(path: &str) -> std::io::Result<()> {
         let mut output = std::io::stdout();
         let mut buffered_output;
 
-        let output: &mut dyn Write = if atty::is(atty::Stream::Stdout) {
+        let output: &mut dyn Write = if force_flush || atty::is(atty::Stream::Stdout) {
             &mut output
         } else {
             buffered_output = BufWriter::new(output);
