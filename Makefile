@@ -5,8 +5,9 @@
 
 COLOR ?= auto # Valid COLOR options: {always, auto, never}
 CARGO = cargo --color $(COLOR)
+GDB = gdb
 
-.PHONY: all bench build check clean doc install publish run test update
+.PHONY: all bench build check clean debug doc install publish run test update
 
 all: build
 
@@ -40,3 +41,5 @@ test: build
 update:
 	@$(CARGO) update
 
+debug: build
+	@$(GDB) target/debug/tac
