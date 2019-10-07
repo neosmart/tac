@@ -95,7 +95,7 @@ fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
                 let mut total_read = 0;
 
                 // Once/if we switch to a file-backed buffer, this will contain the handle.
-                let mut file = None;
+                let mut file: Option<File> = None;
                 buf.resize(MAX_BUF_SIZE, 0);
 
                 loop {
@@ -105,23 +105,24 @@ fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
                     }
 
                     total_read += bytes_read;
-                    match &mut file {
-                        None => {
-                            if total_read >= MAX_BUF_SIZE {
-                                temp_path = Some(
-                                    std::env::temp_dir()
-                                        .join(format!(".tac-{}", std::process::id())),
-                                );
-                                let mut temp_file = File::create(temp_path.as_ref().unwrap())?;
+                    // Here we are using `if`/`else` rather than `match` to support mutating
+                    // the `file` variable inside the block under older versions of rust.
+                    if file.is_none() {
+                        if total_read >= MAX_BUF_SIZE {
+                            temp_path = Some(
+                                std::env::temp_dir()
+                                    .join(format!(".tac-{}", std::process::id())),
+                            );
+                            let mut temp_file = File::create(temp_path.as_ref().unwrap())?;
 
-                                // Write everything we've read so far
-                                temp_file.write_all(&buf[0..total_read])?;
-                                file = Some(temp_file);
-                            }
+                            // Write everything we've read so far
+                            temp_file.write_all(&buf[0..total_read])?;
+                            file = Some(temp_file);
                         }
-                        Some(ref mut temp_file) => {
-                            temp_file.write_all(&buf[0..bytes_read])?;
-                        }
+                    }
+                    else {
+                        let temp_file = file.as_mut().unwrap();
+                        temp_file.write_all(&buf[0..bytes_read])?;
                     }
                 }
 
