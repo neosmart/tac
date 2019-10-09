@@ -110,6 +110,7 @@ fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Er
             (ptr as usize + aligned_index as usize) % 32 == 0,
             "Adjusted index is still not at 256-bit boundary!"
         );
+        // eprintln!("Unoptimized search from {} to {}", aligned_index, last_printed);
         slow_search_and_print(
             bytes,
             aligned_index,
@@ -153,12 +154,11 @@ fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Er
         }
     }
 
-    // eprintln!("Unoptimized end search beginning at index {}", index);
-    if index <= 32 {
+    if index != 0 {
+        // eprintln!("Unoptimized end search from {} to {}", 0, index);
         slow_search_and_print(bytes, 0, index as usize, &mut last_printed, &mut output)?;
+        output.write_all(&bytes[0..last_printed]);
     }
-
-    output.write_all(&bytes[0..last_printed])?;
 
     Ok(())
 }
