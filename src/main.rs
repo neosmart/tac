@@ -9,7 +9,10 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
 
+const SEARCH: u8 = '\n' as u8;
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
+
+enum NEVER {}
 
 fn version() {
     println!(
@@ -40,7 +43,7 @@ fn naive(bytes: &[u8], output: &mut dyn Write) -> Result<(), std::io::Error> {
     let mut index = last_printed - 1;
 
     while index > -2 {
-        if index == -1 || bytes[index as usize] == ('\n' as u8) {
+        if index == -1 || bytes[index as usize] == SEARCH {
             output.write_all(&bytes[(index + 1) as usize..last_printed as usize])?;
             last_printed = index + 1;
         }
@@ -69,13 +72,10 @@ fn slow_search_and_print(
     stop: &mut usize,
     output: &mut dyn Write,
 ) -> Result<(), std::io::Error> {
-    // eprintln!("Slow-searching bytes {}-{}", start, end);
     let mut i = end;
     while i > start {
         i -= 1;
-        // eprintln!("Checking byte {}", i);
-        if bytes[i] == ('\n' as u8) {
-            // println!("Printing from {} to {}", i, *stop);
+        if bytes[i] == SEARCH {
             output.write_all(&bytes[i + 1..*stop])?;
             *stop = i + 1;
         }
@@ -84,19 +84,15 @@ fn slow_search_and_print(
     Ok(())
 }
 
-// This isn't in the hot path, so prefer dynamic dispatch over generic output target
+// This isn't in the hot path, so prefer dynamic dispatch over generic `Write` output
 #[allow(unused)]
-// fn search256<W>(bytes: &[u8], mut output: &mut W) -> Result<(), std::io::Error>
-// where W: Write {
 fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Error> {
     let ptr = bytes.as_ptr();
     let mut last_printed = bytes.len();
-    // eprintln!("total length: {}", bytes.len());
     let mut index = last_printed - 1;
 
-    // We can only use 32-byte (256-bit) aligned reads w/ AVX2 intrinsics
-    // Search via slow method trailing bytes so subsequent aligned reads are always in the
-    // haystack.
+    // We should only use 32-byte (256-bit) aligned reads w/ AVX2 intrinsics.
+    // Search unaligned bytes via slow method so subsequent haystack reads are always aligned.
     if index >= 32 {
         // Regardless of whether or not the base pointer is aligned to a 32-byte address, we are
         // reading from an arbitrary offset (determined by the length of the lines) and so we must
@@ -110,6 +106,7 @@ fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Er
             (ptr as usize + aligned_index as usize) % 32 == 0,
             "Adjusted index is still not at 256-bit boundary!"
         );
+
         // eprintln!("Unoptimized search from {} to {}", aligned_index, last_printed);
         slow_search_and_print(
             bytes,
@@ -121,14 +118,16 @@ fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Er
         index = aligned_index;
         drop(aligned_index);
 
-        let pattern256 = unsafe { core::arch::x86_64::_mm256_set1_epi8('\n' as i8) };
+        let pattern256 = unsafe { core::arch::x86_64::_mm256_set1_epi8(SEARCH as i8) };
         while index >= 32 {
+            let window_end_offset = index;
+            index -= 32;
             unsafe {
-                let window_end_offset = index;
-                index -= 32;
                 let window = ptr.add(index);
-                // #[allow(unused)]
-                // let index: (); // Prevent inadvertant access to the wrong variable
+
+                // Prevent inadvertant access to the wrong variable below
+                #[allow(unused)]
+                let index: NEVER;
 
                 let search256 = core::arch::x86_64::_mm256_load_si256(
                     window as *const core::arch::x86_64::__m256i,
@@ -140,12 +139,12 @@ fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Er
                     // We would count *trailing* zeroes to find new lines in reverse order, but the
                     // result mask is in little endian (reversed) order, so we do the very
                     // opposite.
-                    // let leading = core::intrinsics::ctlz_nonzero(matches);
                     let leading = core::intrinsics::ctlz(matches);
                     let offset = window_end_offset - leading as usize;
 
                     output.write_all(&bytes[offset..last_printed])?;
                     last_printed = offset;
+
                     // Clear this match from the matches bitset
                     // matches &= !(1 << (32 - leading - 1));
                     matches = core::arch::x86_64::_bzhi_u32(matches, 31 - leading);
@@ -157,8 +156,10 @@ fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Er
     if index != 0 {
         // eprintln!("Unoptimized end search from {} to {}", 0, index);
         slow_search_and_print(bytes, 0, index as usize, &mut last_printed, &mut output)?;
-        output.write_all(&bytes[0..last_printed]);
     }
+
+    // Regardless of whether or not `index` is zero, as this is predicated on `last_printed`
+    output.write_all(&bytes[0..last_printed]);
 
     Ok(())
 }
@@ -301,5 +302,5 @@ fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
         };
     }
 
-    return Ok(());
+    Ok(())
 }
