@@ -31,13 +31,13 @@ fn help() {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let args = std::env::args();
     let mut files = Vec::new();
     let mut force_flush = false;
     let mut skip_switches = false;
-    for arg in args.iter().skip(1).map(|s| s.as_str()) {
-        if !skip_switches && arg.starts_with("-") && arg.len() > 1 {
-            match arg {
+    for arg in args.skip(1) {
+        if !skip_switches && arg.starts_with("-") && arg != "-" {
+            match arg.as_str() {
                 "-h" | "--help" => {
                     help();
                     std::process::exit(0);
@@ -67,10 +67,10 @@ fn main() {
 
     // Read from stdin by default
     if files.len() == 0 {
-        files.push("-");
+        files.push("-".into());
     }
 
-    for file in files {
+    for file in &files {
         if let Err(e) = reverse_file(file, force_flush) {
             eprintln!("{}: {:?}", file, e);
             std::process::exit(-1);
@@ -110,8 +110,7 @@ fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
                     if file.is_none() {
                         if total_read >= MAX_BUF_SIZE {
                             temp_path = Some(
-                                std::env::temp_dir()
-                                    .join(format!(".tac-{}", std::process::id())),
+                                std::env::temp_dir().join(format!(".tac-{}", std::process::id())),
                             );
                             let mut temp_file = File::create(temp_path.as_ref().unwrap())?;
 
@@ -119,8 +118,7 @@ fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
                             temp_file.write_all(&buf[0..total_read])?;
                             file = Some(temp_file);
                         }
-                    }
-                    else {
+                    } else {
                         let temp_file = file.as_mut().unwrap();
                         temp_file.write_all(&buf[0..bytes_read])?;
                     }
