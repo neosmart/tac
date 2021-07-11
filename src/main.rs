@@ -156,7 +156,7 @@ fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Er
     }
 
     // Regardless of whether or not `index` is zero, as this is predicated on `last_printed`
-    output.write_all(&bytes[0..last_printed]);
+    output.write_all(&bytes[0..last_printed])?;
 
     Ok(())
 }
