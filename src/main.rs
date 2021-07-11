@@ -1,6 +1,3 @@
-#![feature(core_intrinsics)]
-#![feature(stmt_expr_attributes)]
-
 extern crate atty;
 extern crate memmap;
 
@@ -125,7 +122,7 @@ fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Er
             unsafe {
                 let window = ptr.add(index);
 
-                // Prevent inadvertant access to the wrong variable below
+                // Prevent inadvertent access to the wrong variable below
                 #[allow(unused)]
                 let index: NEVER;
 
@@ -139,7 +136,7 @@ fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Er
                     // We would count *trailing* zeroes to find new lines in reverse order, but the
                     // result mask is in little endian (reversed) order, so we do the very
                     // opposite.
-                    let leading = core::intrinsics::ctlz(matches);
+                    let leading = matches.leading_zeros();
                     let offset = window_end_offset - leading as usize;
 
                     output.write_all(&bytes[offset..last_printed])?;
