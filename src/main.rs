@@ -33,9 +33,9 @@ fn help() {
     println!("  --line-buffered  Always flush output after each line.");
 }
 
-// Naïve implementation
 #[allow(unused)]
-fn naive(bytes: &[u8], output: &mut dyn Write) -> Result<(), std::io::Error> {
+/// This is the default, naïve byte search
+fn search(bytes: &[u8], output: &mut dyn Write) -> Result<(), std::io::Error> {
     let mut last_printed = bytes.len() as i64;
     let mut index = last_printed - 1;
 
@@ -52,6 +52,8 @@ fn naive(bytes: &[u8], output: &mut dyn Write) -> Result<(), std::io::Error> {
 }
 
 #[allow(unused)]
+#[cfg(debug_assertions)]
+/// Helper function to print the contents of a binary window as ASCII, for debugging purposes.
 unsafe fn dump_window(window: *const u8) {
     let mut window_contents = [' '; 32];
     for i in 0..32 {
@@ -60,8 +62,8 @@ unsafe fn dump_window(window: *const u8) {
     dbg!(window_contents);
 }
 
-// Search index-by-index a range and print
 #[inline(always)]
+/// Search a range index-by-index and write to `output` when a match is found.
 fn slow_search_and_print(
     bytes: &[u8],
     start: usize,
@@ -81,9 +83,10 @@ fn slow_search_and_print(
     Ok(())
 }
 
-// This isn't in the hot path, so prefer dynamic dispatch over generic `Write` output
-#[allow(unused)]
-fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Error> {
+#[target_feature(enable = "avx2")]
+#[allow(unused_unsafe)]
+// This isn't in the hot path, so prefer dynamic dispatch over a generic `Write` output.
+pub unsafe fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Error> {
     let ptr = bytes.as_ptr();
     let mut last_printed = bytes.len();
     let mut index = last_printed - 1;
@@ -142,7 +145,7 @@ fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Er
                     output.write_all(&bytes[offset..last_printed])?;
                     last_printed = offset;
 
-                    // Clear this match from the matches bitset
+                    // Clear this match from the matches bitset. The equivalent:
                     // matches &= !(1 << (32 - leading - 1));
                     matches = core::arch::x86_64::_bzhi_u32(matches, 31 - leading);
                 }
@@ -284,8 +287,19 @@ fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
             &mut buffered_output
         };
 
-        search256(bytes, &mut output)?;
-        // naive(bytes, &mut output)?;
+
+        let mut use_avx2 = false;
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                use_avx2 = true;
+            }
+        }
+        if use_avx2 {
+            unsafe { search256(bytes, &mut output)?; }
+        } else {
+            search(bytes, &mut output)?;
+        }
     }
 
     if let Some(ref path) = temp_path.as_ref() {
