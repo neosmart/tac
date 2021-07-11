@@ -13,7 +13,7 @@ enum NEVER {}
 
 fn version() {
     println!(
-        "tac {} - Copyright NeoSmart Technologies 2017-2019",
+        "tac {} - Copyright NeoSmart Technologies 2017-2021",
         env!("CARGO_PKG_VERSION")
     );
     println!("Developed by Mahmoud Al-Qudsi <mqudsi@neosmart.net>");
