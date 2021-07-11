@@ -35,7 +35,7 @@ fn help() {
 
 #[allow(unused)]
 /// This is the default, naïve byte search
-fn search(bytes: &[u8], output: &mut dyn Write) -> Result<(), std::io::Error> {
+fn search<W: Write>(bytes: &[u8], output: &mut W) -> Result<(), std::io::Error> {
     let mut last_printed = bytes.len() as i64;
     let mut index = last_printed - 1;
 
@@ -99,7 +99,7 @@ fn slow_search_and_print(
 ///
 /// BMI2 is explicitly opted into to inline the BZHI instruction; otherwise a call to the intrinsic
 /// function is added and not inlined.
-unsafe fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Error> {
+unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), std::io::Error> {
     let ptr = bytes.as_ptr();
     let mut last_printed = bytes.len();
     let mut index = last_printed - 1;
