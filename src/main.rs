@@ -84,9 +84,22 @@ fn slow_search_and_print(
 }
 
 #[target_feature(enable = "avx2")]
+#[target_feature(enable = "lzcnt")]
+#[target_feature(enable = "bmi2")]
 #[allow(unused_unsafe)]
-// This isn't in the hot path, so prefer dynamic dispatch over a generic `Write` output.
-pub unsafe fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Error> {
+/// This isn't in the hot path, so prefer dynamic dispatch over a generic `Write` output.
+/// This is an AVX2-optimized newline search function that searches a 32-byte (256-bit) window
+/// instead of scanning character-by-character (once aligned). This is a *safe* function, but must
+/// be adorned with `unsafe` to guarantee it's not called without first checking for AVX2 support.
+///
+/// We need to explicitly enable lzcnt support for u32::leading_zeros() to use the `lzcnt`
+/// instruction instead of an extremely slow combination of branching + BSR. We do not need to test
+/// for lzcnt support before calling this method as lzcnt was introduced by AMD alongside SSE4a, long
+/// before AVX2, and by Intel on Haswell.
+///
+/// BMI2 is explicitly opted into to inline the BZHI instruction; otherwise a call to the intrinsic
+/// function is added and not inlined.
+unsafe fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), std::io::Error> {
     let ptr = bytes.as_ptr();
     let mut last_printed = bytes.len();
     let mut index = last_printed - 1;
@@ -139,6 +152,7 @@ pub unsafe fn search256(bytes: &[u8], mut output: &mut dyn Write) -> Result<(), 
                     // We would count *trailing* zeroes to find new lines in reverse order, but the
                     // result mask is in little endian (reversed) order, so we do the very
                     // opposite.
+                    // let leading = core::intrinsics::ctlz(matches)
                     let leading = matches.leading_zeros();
                     let offset = window_end_offset - leading as usize;
 
