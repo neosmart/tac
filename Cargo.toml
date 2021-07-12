@@ -1,5 +1,6 @@
 [package]
 name = "tac"
+edition = "2018"
 version = "2.0.0"
 authors = ["Mahmoud Al-Qudsi <mqudsi@neosmart.net>"]
 description = "Print lines from file in reverse order"

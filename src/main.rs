@@ -1,6 +1,3 @@
-extern crate atty;
-extern crate memmap;
-
 use memmap::Mmap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -301,7 +298,6 @@ fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
             &mut buffered_output
         };
 
-
         let mut use_avx2 = false;
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
@@ -310,7 +306,9 @@ fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
             }
         }
         if use_avx2 {
-            unsafe { search256(bytes, &mut output)?; }
+            unsafe {
+                search256(bytes, &mut output)?;
+            }
         } else {
             search(bytes, &mut output)?;
         }
