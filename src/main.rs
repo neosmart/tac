@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
 
-const SEARCH: u8 = '\n' as u8;
+const SEARCH: u8 = b'\n';
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 
 enum NEVER {}
@@ -177,7 +177,9 @@ unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), st
 
 fn main() {
     let args = std::env::args();
-    let mut files = Vec::new();
+    // This is intentionally one more than what we might need, in case no arguments were provided
+    // and we want to stub a "-" argument in there.
+    let mut files = Vec::with_capacity(args.len());
     let mut force_flush = false;
     let mut skip_switches = false;
     for arg in args.skip(1) {
