@@ -307,7 +307,10 @@ fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
                 use_avx2 = true;
             }
         }
-        if use_avx2 {
+        if bytes.len() == 0 {
+            // Do nothing. This avoids an underflow in the search functions which expect there to
+            // be at least one byte.
+        } else if use_avx2 {
             unsafe {
                 search256(bytes, &mut output)?;
             }
