@@ -2,7 +2,7 @@
 
 `tac` is a high-performance, simd-accelerated, cross-platform rewrite of the [GNU `tac` utility](https://www.gnu.org/software/coreutils/manual/html_node/tac-invocation.html#tac-invocation) from Coreutils, released under a BSD-compatible (MIT) license. `tac` reads input from a file (or from `stdin`, but [see below](#implementation-notes)) and then prints it line-by-line backwards.
 
-This `tac` implementation uses simd-acceleration for new line detection and utilizes memory-mapped files on all supported operating systems. It is additionally written in rust for maximum integrity and safety.
+This `tac` implementation uses simd-acceleration for new line detection (read more about that [here](https://neosmart.net/blog/2021/using-simd-acceleration-in-rust-to-create-the-worlds-fastest-tac/)) and utilizes memory-mapped files on all supported operating systems. It is additionally written in rust for maximum integrity and safety.
 
 ## Who needs a faster `tac` anyway?
 
