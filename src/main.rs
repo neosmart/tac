@@ -27,7 +27,7 @@ fn help() {
     println!("Options:");
     println!("  -h --help        Print this help text and exit");
     println!("  -v --version     Print version and exit.");
-    println!("  --line-buffered  Always flush output after each line.");
+    println!("  -l --line-buffered  Always flush output after each line.");
 }
 
 #[allow(unused)]
@@ -193,7 +193,7 @@ fn main() {
                     version();
                     std::process::exit(0);
                 }
-                "--line-buffered" => {
+                "-l" | "--line-buffered" => {
                     force_flush = true;
                 }
                 "--" => {
