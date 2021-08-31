@@ -6,8 +6,6 @@ use std::io::BufWriter;
 const SEARCH: u8 = b'\n';
 const MAX_BUF_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 
-enum NEVER {}
-
 fn version() {
     println!(
         "tac {} - Copyright NeoSmart Technologies 2017-2021",
@@ -129,27 +127,33 @@ unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), st
         drop(aligned_index);
 
         let pattern256 = unsafe { core::arch::x86_64::_mm256_set1_epi8(SEARCH as i8) };
-        while index >= 32 {
+        while index >= 64 {
             let window_end_offset = index;
-            index -= 32;
             unsafe {
+                index -= 32;
                 let window = ptr.add(index);
-
-                // Prevent inadvertent access to the wrong variable below
-                #[allow(unused)]
-                let index: NEVER;
-
                 let search256 = core::arch::x86_64::_mm256_load_si256(
                     window as *const core::arch::x86_64::__m256i,
                 );
                 let result256 = core::arch::x86_64::_mm256_cmpeq_epi8(search256, pattern256);
-                let mut matches: u32 = core::arch::x86_64::_mm256_movemask_epi8(result256) as u32;
+                let mut matches: u64 = core::arch::x86_64::_mm256_movemask_epi8(result256) as u64;
+
+                // Partially unroll this loop by repeating the above again before handling results
+                index -= 32;
+                let window = ptr.add(index);
+                let search256 = core::arch::x86_64::_mm256_load_si256(
+                    window as *const core::arch::x86_64::__m256i,
+                );
+                let result256 = core::arch::x86_64::_mm256_cmpeq_epi8(search256, pattern256);
+                matches =
+                    (matches << 32) | core::arch::x86_64::_mm256_movemask_epi8(result256) as u64;
 
                 while matches != 0 {
                     // We would count *trailing* zeroes to find new lines in reverse order, but the
                     // result mask is in little endian (reversed) order, so we do the very
                     // opposite.
-                    // let leading = core::intrinsics::ctlz(matches)
+                    // core::intrinsics::ctlz() is not stabilized, but `u64::leading_zeros()` will
+                    // use it directly if the lzcnt or bmi1 features are enabled.
                     let leading = matches.leading_zeros();
                     let offset = window_end_offset - leading as usize;
 
@@ -157,8 +161,8 @@ unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), st
                     last_printed = offset;
 
                     // Clear this match from the matches bitset. The equivalent:
-                    // matches &= !(1 << (32 - leading - 1));
-                    matches = core::arch::x86_64::_bzhi_u32(matches, 31 - leading);
+                    // matches &= !(1 << (64 - leading - 1));
+                    matches = core::arch::x86_64::_bzhi_u64(matches, 63 - leading);
                 }
             }
         }
