@@ -57,6 +57,7 @@ unsafe fn dump_window(window: *const u8) {
     dbg!(window_contents);
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 /// Search a range index-by-index and write to `output` when a match is found.
 fn slow_search_and_print(
@@ -78,6 +79,7 @@ fn slow_search_and_print(
     Ok(())
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 #[target_feature(enable = "lzcnt")]
 #[target_feature(enable = "bmi2")]
@@ -177,6 +179,17 @@ unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), st
     output.write_all(&bytes[0..last_printed])?;
 
     Ok(())
+}
+
+fn search_auto<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), std::io::Error> {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    if is_x86_feature_detected!("avx2") {
+        return unsafe {
+            search256(bytes, &mut output)
+        };
+    }
+
+    search(bytes, &mut output)
 }
 
 fn main() {
@@ -304,22 +317,11 @@ fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
             &mut buffered_output
         };
 
-        let mut use_avx2 = false;
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
-            if is_x86_feature_detected!("avx2") {
-                use_avx2 = true;
-            }
-        }
         if bytes.len() == 0 {
             // Do nothing. This avoids an underflow in the search functions which expect there to
             // be at least one byte.
-        } else if use_avx2 {
-            unsafe {
-                search256(bytes, &mut output)?;
-            }
         } else {
-            search(bytes, &mut output)?;
+            search_auto(bytes, &mut output)?;
         }
     }
 
