@@ -1,3 +1,5 @@
+#![cfg_attr(all(feature = "nightly", target_arch = "aarch64"), feature(stdsimd))]
+
 use memmap::Mmap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -57,7 +59,11 @@ unsafe fn dump_window(window: *const u8) {
     dbg!(window_contents);
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(feature = "nightly", target_arch = "aarch64")
+))]
 #[inline(always)]
 /// Search a range index-by-index and write to `output` when a match is found.
 fn slow_search_and_print(
@@ -181,13 +187,113 @@ unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), st
     Ok(())
 }
 
+#[cfg(all(feature = "nightly", target_arch = "aarch64"))]
+/// This is a NEON/AdvSIMD-optimized newline search function that searches a 16-byte (128-bit) window
+/// instead of scanning character-by-character (once aligned).
+fn search128<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), std::io::Error> {
+    use core::arch::aarch64::*;
+
+    let ptr = bytes.as_ptr();
+    let mut last_printed = bytes.len();
+    let mut index = last_printed - 1;
+
+    if index >= 64 {
+        // ARMv8 loads do not have alignment *requirements*, but there can be performance penalties
+        // (e.g. seems to be about 2% slowdown on Cortex-A72 with a 500MB file) so let's align.
+        // Search unaligned bytes via slow method so subsequent haystack reads are always aligned.
+        let align_offset = unsafe { ptr.offset(index as isize).align_offset(16) };
+        let aligned_index = index as usize + align_offset - 16;
+
+        // eprintln!("Unoptimized search from {} to {}", aligned_index, last_printed);
+        slow_search_and_print(
+            bytes,
+            aligned_index,
+            last_printed,
+            &mut last_printed,
+            &mut output,
+        )?;
+        index = aligned_index;
+        drop(aligned_index);
+
+        let pattern128 = unsafe { vdupq_n_u8(SEARCH) };
+        while index >= 64 {
+            let window_end_offset = index;
+            unsafe {
+                index -= 16;
+                let window = ptr.add(index);
+                let search128 = vld1q_u8(window);
+                let result128_0 = vceqq_u8(search128, pattern128);
+
+                index -= 16;
+                let window = ptr.add(index);
+                let search128 = vld1q_u8(window);
+                let result128_1 = vceqq_u8(search128, pattern128);
+
+                index -= 16;
+                let window = ptr.add(index);
+                let search128 = vld1q_u8(window);
+                let result128_2 = vceqq_u8(search128, pattern128);
+
+                index -= 16;
+                let window = ptr.add(index);
+                let search128 = vld1q_u8(window);
+                let result128_3 = vceqq_u8(search128, pattern128);
+
+                // Bulk movemask as described in
+                // https://branchfree.org/2019/04/01/fitting-my-head-through-the-arm-holes-or-two-sequences-to-substitute-for-the-missing-pmovmskb-instruction-on-arm-neon/
+                let mut matches = {
+                    let bit_mask: uint8x16_t = std::mem::transmute([
+                        0x01u8, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x4, 0x8, 0x10,
+                        0x20, 0x40, 0x80,
+                    ]);
+                    let t0 = vandq_u8(result128_3, bit_mask);
+                    let t1 = vandq_u8(result128_2, bit_mask);
+                    let t2 = vandq_u8(result128_1, bit_mask);
+                    let t3 = vandq_u8(result128_0, bit_mask);
+                    let sum0 = vpaddq_u8(t0, t1);
+                    let sum1 = vpaddq_u8(t2, t3);
+                    let sum0 = vpaddq_u8(sum0, sum1);
+                    let sum0 = vpaddq_u8(sum0, sum0);
+                    vgetq_lane_u64(vreinterpretq_u64_u8(sum0), 0)
+                };
+
+                while matches != 0 {
+                    // We would count *trailing* zeroes to find new lines in reverse order, but the
+                    // result mask is in little endian (reversed) order, so we do the very
+                    // opposite.
+                    let leading = matches.leading_zeros();
+                    let offset = window_end_offset - leading as usize;
+
+                    output.write_all(&bytes[offset..last_printed])?;
+                    last_printed = offset;
+
+                    // Clear this match from the matches bitset.
+                    matches &= !(1 << (64 - leading - 1));
+                }
+            }
+        }
+    }
+
+    if index != 0 {
+        // eprintln!("Unoptimized end search from {} to {}", 0, index);
+        slow_search_and_print(bytes, 0, index as usize, &mut last_printed, &mut output)?;
+    }
+
+    // Regardless of whether or not `index` is zero, as this is predicated on `last_printed`
+    output.write_all(&bytes[0..last_printed])?;
+
+    Ok(())
+}
+
+#[allow(unreachable_code)]
 fn search_auto<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), std::io::Error> {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx2") {
-        return unsafe {
-            search256(bytes, &mut output)
-        };
+        return unsafe { search256(bytes, &mut output) };
     }
+
+    #[cfg(all(feature = "nightly", target_arch = "aarch64"))]
+    return search128(bytes, &mut output);
 
     search(bytes, &mut output)
 }

@@ -41,9 +41,11 @@ cargo install tac
 
 Help is humbly requested in getting `tac` into the package managers for various platforms. It's really a time-consuming task, especially for someone that only interacts with the various packaging tools once in a blue moon as opposed to on a daily basis.
 
+Currently arm64 (aarch64) NEON acceleration is only available with the nightly compiler. If using it, provide the `--features nightly` flag to `cargo` to enable support.
+
 ## Implementation Notes
 
-This implementation of `tac` uses the AVX2 instruction set to provide SIMD acceleration for the detection of new lines. The usage of memory-mapped files additionally boosts performance by avoiding slowdowns caused by context switches when reading from the input if speculative execution mitigations are enabled. It is significantly (2.55x if mitigations disabled, more otherwise) faster than the version of `tac` that ships with GNU Coreutils, in addition to being more liberally licensed.
+This implementation of `tac` uses SIMD instruction sets (AVX2, NEON) to accelerate for the detection of new lines. The usage of memory-mapped files additionally boosts performance by avoiding slowdowns caused by context switches when reading from the input if speculative execution mitigations are enabled. It is significantly (2.55x if mitigations disabled, more otherwise) faster than the version of `tac` that ships with GNU Coreutils, in addition to being more liberally licensed.
 
 **To obtain maximum performance:**
 
