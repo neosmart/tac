@@ -240,7 +240,7 @@ fn search128<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), std::io::
                 let result128_3 = vceqq_u8(search128, pattern128);
 
                 // Bulk movemask as described in
-                // https://branchfree.org/2019/04/01/fitting-my-head-through-the-arm-holes-or-two-sequences-to-substitute-for-the-missing-pmovmskb-instruction-on-arm-neon/
+                // https://branchfree.org/2019/04/01/fitting-my-head-through-the-arm-holes/
                 let mut matches = {
                     let bit_mask: uint8x16_t = std::mem::transmute([
                         0x01u8, 0x02, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x4, 0x8, 0x10,

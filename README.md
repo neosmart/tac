@@ -45,7 +45,7 @@ Currently arm64 (aarch64) NEON acceleration is only available with the nightly c
 
 ## Implementation Notes
 
-This implementation of `tac` uses SIMD instruction sets (AVX2, NEON) to accelerate for the detection of new lines. The usage of memory-mapped files additionally boosts performance by avoiding slowdowns caused by context switches when reading from the input if speculative execution mitigations are enabled. It is significantly (2.55x if mitigations disabled, more otherwise) faster than the version of `tac` that ships with GNU Coreutils, in addition to being more liberally licensed.
+This implementation of `tac` uses SIMD instruction sets (AVX2, NEON) to accelerate the detection of new lines. The usage of memory-mapped files additionally boosts performance by avoiding slowdowns caused by context switches when reading from the input if speculative execution mitigations are enabled. It is significantly (2.55x if mitigations disabled, more otherwise) faster than the version of `tac` that ships with GNU Coreutils, in addition to being more liberally licensed.
 
 **To obtain maximum performance:**
 
