@@ -101,7 +101,7 @@ unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), st
 
     // We should only use 32-byte (256-bit) aligned reads w/ AVX2 intrinsics.
     // Search unaligned bytes via slow method so subsequent haystack reads are always aligned.
-    if index >= 32 {
+    if index >= 64 {
         // Regardless of whether or not the base pointer is aligned to a 32-byte address, we are
         // reading from an arbitrary offset (determined by the length of the lines) and so we must
         // first calculate a safe place to begin using SIMD operations from.
