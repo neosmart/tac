@@ -13,7 +13,29 @@ pub fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
 
     {
         let bytes = match path {
-            "-" => {
+            "-" => loop {
+                // Depending on what the STDIN fd actually points to, it may still be possible to
+                // mmap the input (e.g. in case of `tac - < foo.txt`). See issue #2.
+                #[cfg(target_family = "unix")]
+                {
+                    use std::os::unix::io::{AsRawFd, FromRawFd};
+                    let stdin = std::io::stdin();
+                    let raw_fd = stdin.as_raw_fd();
+                    // No memmap crate exposes a `map()` function that takes a `RawFd`, so we have
+                    // to create a dummy file just to pass the specific fd we want to the OS.
+                    // unsafe: We'll mem::forget() the file so the fd never has more than one owner
+                    let file = unsafe { File::from_raw_fd(raw_fd) };
+                    let test_mmap = unsafe { Mmap::map(&file) };
+                    std::mem::forget(file);
+                    if let Ok(map) = test_mmap {
+                        // eprintln!("Successfully memmapped stdin");
+                        mmap = map;
+                        break &mmap[..];
+                    } else {
+                        // eprintln!("Unable to memmap stdin, falling back to buffering");
+                    }
+                }
+
                 // We unfortunately need to buffer the entirety of the stdin input first;
                 // we try to do so purely in memory but will switch to a backing file if
                 // the input exceeds MAX_BUF_SIZE.
@@ -55,14 +77,14 @@ pub fn reverse_file(path: &str, force_flush: bool) -> std::io::Result<()> {
                 // At this point, we have fully consumed the input and can proceed
                 // as if it were a normal source rather than stdin.
 
-                match &file {
+                break match &file {
                     None => &buf[0..total_read],
                     Some(temp_file) => {
                         mmap = unsafe { Mmap::map(&temp_file)? };
                         &mmap[..]
                     }
-                }
-            }
+                };
+            },
             _ => {
                 let file = File::open(path)?;
                 mmap = unsafe { Mmap::map(&file)? };
@@ -355,4 +377,3 @@ fn search128<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), std::io::
 
     Ok(())
 }
-
