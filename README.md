@@ -54,5 +54,7 @@ This implementation of `tac` uses the AVX2 instruction set to provide SIMD accel
 
 ## License and Copyright
 
-`tac` is written by Mahmoud Al-Qudsi <<mqudsi@neosmart.net>> of NeoSmart Technologies, and released under the terms of the MIT public license. Copyright NeoSmart Technologies 2021. All rights not assigned by the MIT license are reserved.
+`tac` is released under the terms of the MIT public license.
+Copyright Mahmoud Al-Qudsi 2017-2021. All rights not assigned by the MIT license are reserved.
 
+As an open source project, `tac` would not exist without the tireless efforts of its various contributors - see [CONTRIBUTORS.md](/CONTRIBUTORS.md) for full details.
