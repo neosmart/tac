@@ -202,6 +202,7 @@ fn slow_search_and_print(
 /// function is added and not inlined.
 unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), std::io::Error> {
     use core::arch::x86_64::*;
+    use std::intrinsics::{likely, unlikely};
 
     let ptr = bytes.as_ptr();
     let mut last_printed = bytes.len();
@@ -209,7 +210,7 @@ unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), st
 
     // We should only use 32-byte (256-bit) aligned reads w/ AVX2 intrinsics.
     // Search unaligned bytes via slow method so subsequent haystack reads are always aligned.
-    if index >= 64 {
+    if likely(index >= 64) {
         // Regardless of whether or not the base pointer is aligned to a 32-byte address, we are
         // reading from an arbitrary offset (determined by the length of the lines) and so we must
         // first calculate a safe place to begin using SIMD operations from.
@@ -235,7 +236,7 @@ unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), st
         drop(aligned_index);
 
         let pattern256 = unsafe { _mm256_set1_epi8(SEARCH as i8) };
-        while index >= 64 {
+        while likely(index >= 64) {
             let window_end_offset = index;
             unsafe {
                 index -= 32;
@@ -249,10 +250,9 @@ unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), st
                 let result256 = _mm256_cmpeq_epi8(search256, pattern256);
                 matches = (matches << 32) | _mm256_movemask_epi8(result256) as u64;
 
-                while matches != 0 {
+                while likely(matches != 0) {
                     // We would count *trailing* zeroes to find new lines in reverse order, but the
-                    // result mask is in little endian (reversed) order, so we do the very
-                    // opposite.
+                    // result mask is in little endian (reversed) order, so we do the opposite.
                     // core::intrinsics::ctlz() is not stabilized, but `u64::leading_zeros()` will
                     // use it directly if the lzcnt or bmi1 features are enabled.
                     let leading = matches.leading_zeros();

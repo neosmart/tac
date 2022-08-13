@@ -1,5 +1,6 @@
 // NEON SIMD intrinsics for aarch64 are not yet stabilized and require the nightly compiler
 #![cfg_attr(all(feature = "nightly", target_arch = "aarch64"), feature(stdsimd))]
+#![feature(core_intrinsics)]
 
 mod tac;
 
