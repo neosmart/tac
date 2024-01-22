@@ -68,8 +68,10 @@ fn main() {
 
     for file in &files {
         if let Err(e) = tac::reverse_file(file, force_flush) {
-            eprintln!("{}: {:?}", file, e);
-            std::process::exit(-1);
+            if e.kind() != std::io::ErrorKind::BrokenPipe {
+                eprintln!("{}: {:?}", file, e);
+                std::process::exit(-1);
+            }
         }
     }
 }
