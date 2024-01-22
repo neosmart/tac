@@ -213,26 +213,29 @@ unsafe fn search256<W: Write>(bytes: &[u8], mut output: &mut W) -> Result<(), st
         // Regardless of whether or not the base pointer is aligned to a 32-byte address, we are
         // reading from an arbitrary offset (determined by the length of the lines) and so we must
         // first calculate a safe place to begin using SIMD operations from.
-        let align_offset = unsafe { ptr.offset(index as isize).align_offset(32) };
-        let aligned_index = index as usize + align_offset - 32;
-        debug_assert!(
-            aligned_index <= index as usize && aligned_index < last_printed && aligned_index > 0
-        );
-        debug_assert!(
-            (ptr as usize + aligned_index as usize) % 32 == 0,
-            "Adjusted index is still not at 256-bit boundary!"
-        );
+        index = {
+            let align_offset = unsafe { ptr.offset(index as isize).align_offset(32) };
+            let aligned_index = index as usize + align_offset - 32;
+            debug_assert!(
+                aligned_index <= index as usize
+                    && aligned_index < last_printed
+                    && aligned_index > 0
+            );
+            debug_assert!(
+                (ptr as usize + aligned_index as usize) % 32 == 0,
+                "Adjusted index is still not at 256-bit boundary!"
+            );
 
-        // eprintln!("Unoptimized search from {} to {}", aligned_index, last_printed);
-        slow_search_and_print(
-            bytes,
-            aligned_index,
-            last_printed,
-            &mut last_printed,
-            &mut output,
-        )?;
-        index = aligned_index;
-        drop(aligned_index);
+            // eprintln!("Unoptimized search from {} to {}", aligned_index, last_printed);
+            slow_search_and_print(
+                bytes,
+                aligned_index,
+                last_printed,
+                &mut last_printed,
+                &mut output,
+            )?;
+            aligned_index
+        };
 
         let pattern256 = unsafe { _mm256_set1_epi8(SEARCH as i8) };
         while index >= 64 {
